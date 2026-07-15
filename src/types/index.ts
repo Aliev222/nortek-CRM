@@ -15,6 +15,8 @@ export interface Purchase {
   contact_id: string | null
   is_paid: boolean
   paid_at: string | null
+  status: 'active' | 'returned'
+  returned_at: string | null
   created_at: string
 }
 
@@ -27,6 +29,8 @@ export interface Sale {
   contact_id: string | null
   is_paid: boolean
   paid_at: string | null
+  status: 'active' | 'returned'
+  returned_at: string | null
   created_at: string
 }
 
@@ -92,9 +96,11 @@ export interface Analytics {
 export interface HistoryItem {
   id: string
   type: 'purchase' | 'sale'
+  product_id: string
   product_name: string
   quantity: number
   price_per_unit: number
   total: number
+  status: 'active' | 'returned'
   created_at: string
 }

@@ -28,8 +28,8 @@ export function useDashboard() {
   const fetchDashboard = useCallback(async () => {
     setLoading(true)
 
-    const { data: purchases } = await supabase.from('purchases').select('total, created_at, quantity, price_per_unit, product_id')
-    const { data: sales } = await supabase.from('sales').select('total, created_at, quantity, price_per_unit, product_id')
+    const { data: purchases } = await supabase.from('purchases').select('total, created_at, quantity, price_per_unit, product_id, status').neq('status', 'returned')
+    const { data: sales } = await supabase.from('sales').select('total, created_at, quantity, price_per_unit, product_id, status').neq('status', 'returned')
     const { data: allProducts } = await supabase.from('products').select('id, name, current_stock')
 
     const productMap = new Map((allProducts ?? []).map(p => [p.id, p.name]))
@@ -94,20 +94,24 @@ export function useDashboard() {
     const purchaseItems: HistoryItem[] = (purchases ?? []).map(p => ({
       id: p.product_id + '-p-' + p.created_at,
       type: 'purchase' as const,
+      product_id: p.product_id,
       product_name: productMap.get(p.product_id) ?? 'Неизвестный',
       quantity: p.quantity,
       price_per_unit: p.price_per_unit,
       total: p.total,
+      status: 'active' as const,
       created_at: p.created_at,
     }))
 
     const saleItems: HistoryItem[] = (sales ?? []).map(s => ({
       id: s.product_id + '-s-' + s.created_at,
       type: 'sale' as const,
+      product_id: s.product_id,
       product_name: productMap.get(s.product_id) ?? 'Неизвестный',
       quantity: s.quantity,
       price_per_unit: s.price_per_unit,
       total: s.total,
+      status: 'active' as const,
       created_at: s.created_at,
     }))
 

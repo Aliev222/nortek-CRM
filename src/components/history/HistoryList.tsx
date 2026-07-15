@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
+import { useSales } from '../../hooks/useSales'
+import { usePurchases } from '../../hooks/usePurchases'
 import PageHeader from '../layout/PageHeader'
 import HistoryItem from './HistoryItem'
 import { formatDateRu } from '../../lib/utils'
@@ -14,6 +16,9 @@ export default function HistoryList() {
   const [filter, setFilter] = useState<Filter>('Все')
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(true)
+  const [cancellingId, setCancellingId] = useState<string | null>(null)
+  const { returnSale } = useSales()
+  const { returnPurchase } = usePurchases()
   const PAGE_SIZE = 20
 
   const fetchHistory = useCallback(async (pageNum: number, append: boolean = false) => {
@@ -46,20 +51,24 @@ export default function HistoryList() {
     const purchaseItems: HistoryItemType[] = purchases.map(p => ({
       id: p.id,
       type: 'purchase' as const,
+      product_id: p.product_id,
       product_name: productMap.get(p.product_id) ?? 'Неизвестный',
       quantity: p.quantity,
       price_per_unit: p.price_per_unit,
       total: p.total,
+      status: p.status ?? 'active',
       created_at: p.created_at,
     }))
 
     const saleItems: HistoryItemType[] = sales.map(s => ({
       id: s.id,
       type: 'sale' as const,
+      product_id: s.product_id,
       product_name: productMap.get(s.product_id) ?? 'Неизвестный',
       quantity: s.quantity,
       price_per_unit: s.price_per_unit,
       total: s.total,
+      status: s.status ?? 'active',
       created_at: s.created_at,
     }))
 
@@ -81,6 +90,29 @@ export default function HistoryList() {
     setPage(0)
     fetchHistory(0)
   }, [fetchHistory])
+
+  const handleCancel = async (item: HistoryItemType) => {
+    if (item.status === 'returned') return
+    if (!window.confirm(
+      item.type === 'sale'
+        ? `Отменить продажу "${item.product_name}"? Товар (×${item.quantity}) вернётся на склад.`
+        : `Отменить закупку "${item.product_name}"? Товар (×${item.quantity}) будет списан со склада.`
+    )) return
+
+    setCancellingId(item.id)
+    const err = item.type === 'sale'
+      ? await returnSale(item.id, item.product_id, item.quantity)
+      : await returnPurchase(item.id, item.product_id, item.quantity)
+    setCancellingId(null)
+
+    if (err) {
+      alert('Ошибка: ' + err)
+    } else {
+      setItems(prev => prev.map(i =>
+        i.id === item.id ? { ...i, status: 'returned' as const } : i
+      ))
+    }
+  }
 
   const loadMore = () => {
     const nextPage = page + 1
@@ -121,7 +153,11 @@ export default function HistoryList() {
           <div className="bg-card border border-white/10 rounded-[20px] overflow-hidden">
             {dateItems.map((item, i) => (
               <div key={item.id + i} className="border-b border-white/10 last:border-b-0">
-                <HistoryItem item={item} />
+                <HistoryItem
+                  item={item}
+                  onCancel={handleCancel}
+                  cancelling={cancellingId === item.id}
+                />
               </div>
             ))}
           </div>

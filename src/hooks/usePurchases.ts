@@ -44,5 +44,44 @@ export function usePurchases() {
     return null
   }
 
-  return { addPurchase, loading }
+  const returnPurchase = async (
+    purchaseId: string,
+    product_id: string,
+    quantity: number,
+  ): Promise<string | null> => {
+    setLoading(true)
+
+    const { error: returnError } = await supabase
+      .from('purchases')
+      .update({ status: 'returned', returned_at: new Date().toISOString() })
+      .eq('id', purchaseId)
+    if (returnError) {
+      setLoading(false)
+      return returnError.message
+    }
+
+    const { data: product } = await supabase
+      .from('products')
+      .select('current_stock')
+      .eq('id', product_id)
+      .single()
+    if (!product) {
+      setLoading(false)
+      return 'Товар не найден'
+    }
+
+    const { error: updateError } = await supabase
+      .from('products')
+      .update({ current_stock: product.current_stock - quantity })
+      .eq('id', product_id)
+    if (updateError) {
+      setLoading(false)
+      return updateError.message
+    }
+
+    setLoading(false)
+    return null
+  }
+
+  return { addPurchase, returnPurchase, loading }
 }
